@@ -178,6 +178,42 @@ Le client nécessite **`httpx`** (déjà dans `requirements.txt`).
 
 ---
 
+## Construire l’exécutable
+
+Vous pouvez générer un binaire **bedrock-proxy** (sans installer Python sur la machine cible) avec PyInstaller.
+
+### Prérequis
+
+```bash
+pip install -r requirements.txt -r requirements-build.txt
+```
+
+### Build
+
+À la racine du projet :
+
+```bash
+pyinstaller bedrock-proxy.spec
+```
+
+Résultat :
+- **macOS / Linux** : `dist/bedrock-proxy` (exécutable)
+- **Windows** : `dist/bedrock-proxy.exe`
+
+### Utilisation de l’exécutable
+
+Placer **`.env`** et optionnellement **`bedrock-proxy.config.json`** dans le **même dossier** que l’exécutable (ou définir les variables d’environnement).
+
+| Commande | Effet |
+|----------|--------|
+| `./bedrock-proxy` ou `./bedrock-proxy serve` | Lance le serveur (port 8000 par défaut) |
+| `./bedrock-proxy login-entra [--proxy-url URL]` | Login Entra ID, écrit la config à côté de l’exe |
+| `./bedrock-proxy login-cognito [--proxy-url URL]` | Login Cognito, écrit la config à côté de l’exe |
+
+Variables d’environnement optionnelles pour le serveur : **`BEDROCK_PROXY_HOST`** (défaut `0.0.0.0`), **`BEDROCK_PROXY_PORT`** (défaut `8000`).
+
+---
+
 ## Structure
 
 - `config.py` : paramètres (auth + AWS).
@@ -188,5 +224,7 @@ Le client nécessite **`httpx`** (déjà dans `requirements.txt`).
 - `src/client.py` : client Python + CLI (`login-entra`, `login-cognito`) pour config automatique.
 - `src/usage/` : suivi d’utilisation (qui a utilisé, combien).
 - `.cursor/rules/aws-proxy-claude.mdc` : règle Cursor pour utiliser le proxy avec Claude Code.
+- `bedrock_proxy_main.py` : point d’entrée pour l’exécutable (serve + CLI).
+- `bedrock-proxy.spec` : spec PyInstaller pour générer l’exe.
 
 Toutes les requêtes AWS passent par le proxy et utilisent le profil forgé configuré sur le serveur.
