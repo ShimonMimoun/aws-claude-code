@@ -1,0 +1,4 @@
+{
+  "url": "http://localhost:8000",
+  "token": "VOTRE_JWT_ENTRA_OU_COGNITO"
+}

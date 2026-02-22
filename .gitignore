@@ -1,0 +1,13 @@
+# Config avec tokens (ne pas commiter)
+.env
+bedrock-proxy.config.json
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Usage log (optionnel)
+usage.jsonl
+.cursor/rules/aws-proxy-claude.mdc
