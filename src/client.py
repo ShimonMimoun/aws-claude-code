@@ -11,6 +11,7 @@ import argparse
 import base64
 import json
 import os
+import sys
 import webbrowser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Any, Optional
@@ -37,8 +38,15 @@ def get_proxy_token() -> str:
     return os.environ.get("BEDROCK_PROXY_TOKEN") or os.environ.get("AWS_PROXY_TOKEN", "")
 
 
+def _get_base_dir() -> str:
+    """Répertoire de la config : à côté de l'exe si PyInstaller, sinon racine du projet."""
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(os.path.abspath(sys.executable))
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
 def _default_config_path() -> str:
-    return os.path.join(os.path.dirname(os.path.dirname(__file__)), "bedrock-proxy.config.json")
+    return os.path.join(_get_base_dir(), "bedrock-proxy.config.json")
 
 
 def load_config_from_file(path: Optional[str] = None) -> tuple[str, str]:

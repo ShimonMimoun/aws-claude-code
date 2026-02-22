@@ -67,37 +67,76 @@ curl -X POST http://localhost:8000/api/aws/execute \
   -d '{"service":"s3","action":"list_buckets","params":{}}'
 ```
 
-## Configuration Claude Code / client proxy
+## Configurer Claude Code avec ce proxy
 
-Pour que **Claude Code** (ou tout script) utilise ce proxy au lieu d’appeler AWS directement :
+Pour que **Claude Code** (Cursor, scripts, ou tout code) utilise ce proxy au lieu d’appeler AWS/Bedrock directement, suivre ces étapes.
 
-### 1. Variables d’environnement
+### Étape 1 : Démarrer le proxy
+
+```bash
+uvicorn src.main:app --host 0.0.0.0 --port 8000
+```
+
+L’URL du proxy est **`http://localhost:8000`** (ou l’URL de votre déploiement).
+
+### Étape 2 : Obtenir un token (une fois)
+
+**Option A – Web**  
+Ouvrir **http://localhost:8000/login** dans le navigateur, suivre le device code Entra (ou la page de login), puis récupérer le JWT si besoin (pour le CLI / env, le cookie ne sert que pour le navigateur).
+
+**Option B – CLI (recommandé pour Claude Code)**  
+Depuis la racine du projet :
+
+```bash
+# Entra ID
+python -m src.client login-entra --proxy-url http://localhost:8000
+
+# ou Cognito
+python -m src.client login-cognito --proxy-url http://localhost:8000
+```
+
+Cela écrit automatiquement **`bedrock-proxy.config.json`** avec l’URL et le token. Aucune variable d’environnement à saisir à la main.
+
+### Étape 3 : Donner l’URL et le token à Claude Code
+
+**Option 1 – Fichier de config (recommandé)**  
+Si vous avez fait l’étape 2 avec le CLI, le fichier **`bedrock-proxy.config.json`** est déjà à la racine du projet. Le client Python du projet le lit automatiquement. Rien à faire de plus.
+
+**Option 2 – Variables d’environnement**  
+Dans le terminal où vous lancez Cursor / vos scripts, ou dans le fichier d’env de votre OS :
 
 ```bash
 export BEDROCK_PROXY_URL=http://localhost:8000
 export BEDROCK_PROXY_TOKEN=votre_jwt_entra_ou_cognito
 ```
 
-Les noms `AWS_PROXY_URL` et `AWS_PROXY_TOKEN` sont aussi reconnus.
+Les noms **`AWS_PROXY_URL`** et **`AWS_PROXY_TOKEN`** sont aussi reconnus.
 
-### 2. Fichier de config (optionnel)
+**Option 3 – Fichier à la main**  
+Créer `bedrock-proxy.config.json` à la racine du projet :
 
-Copier l’exemple et renseigner l’URL et le token :
-
-```bash
-cp bedrock-proxy.config.example.json bedrock-proxy.config.json
-# Éditer bedrock-proxy.config.json (url + token)
+```json
+{
+  "url": "http://localhost:8000",
+  "token": "VOTRE_JWT_ENTRA_OU_COGNITO"
+}
 ```
 
-Format attendu : `{ "url": "http://...", "token": "..." }`. Ne pas commiter le fichier contenant le token.
+Ne pas commiter ce fichier (il est dans `.gitignore`).
 
-### 3. Règle Cursor
+### Étape 4 : Règle Cursor (déjà dans le projet)
 
-Le dossier `.cursor/rules/` contient **aws-proxy-claude.mdc** : dans ce projet, Cursor/Claude est guidé pour utiliser le proxy pour tous les appels AWS/Bedrock (pas d’appels directs, pas de credentials AWS locales).
+Le fichier **`.cursor/rules/aws-proxy-claude.mdc`** est déjà présent. Il indique à Claude Code de :
 
-### 4. Client Python dans le projet
+- ne **jamais** appeler AWS/Bedrock directement ;
+- utiliser le proxy (`POST /api/aws/execute`) avec l’URL et le token (env ou `bedrock-proxy.config.json`) ;
+- privilégier le client Python `src.client` (voir ci-dessous).
 
-Pour appeler Bedrock (Claude) via le proxy depuis du code Python :
+Aucune config Cursor supplémentaire n’est nécessaire : ouvrir le projet dans Cursor suffit.
+
+### Étape 5 : Utiliser le client dans le code
+
+Dans votre code (ou quand Claude Code génère du code qui appelle Bedrock), utiliser le client du projet :
 
 ```python
 from src.client import get_proxy_client
@@ -113,7 +152,7 @@ resp = client.invoke_model(
     modelId="anthropic.claude-3-5-sonnet-20241022-v2:0",
     body=body,
 )
-# resp contient la réponse AWS (body éventuellement en base64 dans la réponse)
+# resp contient la réponse AWS (body éventuellement en base64)
 ```
 
 Appel générique (n’importe quel service AWS) :
@@ -125,7 +164,17 @@ result = execute("s3", "list_buckets")
 result = execute("bedrock-runtime", "invoke_model", params={"modelId": "...", "body": ...})
 ```
 
-Le client nécessite `httpx` (`pip install httpx`).
+Le client nécessite **`httpx`** (déjà dans `requirements.txt`).
+
+### Récapitulatif
+
+| Étape | Action |
+|-------|--------|
+| 1 | Démarrer le proxy : `uvicorn src.main:app --host 0.0.0.0 --port 8000` |
+| 2 | Se connecter une fois : `python -m src.client login-entra` (ou `login-cognito`) |
+| 3 | Rien à faire si vous utilisez `bedrock-proxy.config.json` (écrit par le CLI) |
+| 4 | La règle `.cursor/rules/aws-proxy-claude.mdc` est déjà active dans le projet |
+| 5 | Dans le code : `from src.client import get_proxy_client` puis `get_proxy_client().invoke_model(...)` |
 
 ---
 
